@@ -54,13 +54,14 @@ designing and training ResNets. This can be solved by viewing ResNets as ODEs as
     \begin{minipage}{0.45\textwidth}
         \centering
         Output of block:
-        \begin{gather*}
-            Y_{j+1} = Y_j + \mathcal{F}(Y_j, \theta_j) \\
-            \text{multiply by $h$} \\
-            Y_{j+1} = Y_j + h\mathcal{F}(Y_j, \theta_j) \rightarrow \\
-            \mathcal{F}(Y_j, \theta_j) = \frac{Y_{j+1} - Y_j}{h} \\
-            \xrightarrow[]{h \rightarrow 0} \dot{Y}(t) = \mathcal{F}(Y(t), \theta(t)); Y(0) = Y_0
-        \end{gather*}
+        \begin{gather}
+            Y_{j+1} = Y_j + \mathcal{F}(Y_j, \theta_j) \nonumber \\
+            \text{multiply by $h$} \nonumber  \\
+            Y_{j+1} = Y_j + h\mathcal{F}(Y_j, \theta_j) \rightarrow \nonumber \\
+            \mathcal{F}(Y_j, \theta_j) = \frac{Y_{j+1} - Y_j}{h} \nonumber \\
+            \xrightarrow[]{h \rightarrow 0} \nonumber  \\
+            \boxed{\dot{Y}(t) = \mathcal{F}(Y(t), \theta(t)); \ \ Y(0) = Y_0}
+        \end{gather}
     \end{minipage}
 \end{figure}
 
@@ -86,6 +87,151 @@ designing and training ResNets. This can be solved by viewing ResNets as ODEs as
     \end{minipage}
 \end{figure}
 
-Understanding how reversibility allows for a memory efficient implementations will be explained through an example further under the Section "Single Problem"
+Understanding how reversibility allows for a memory efficient implementations will be explored through an example further on, under the Section "Single Problem" \par
+
+Another definition which is important to understand, which is derived from the realm of ODEs, stability. It is imortant to note that not every method that is algebraically reversible 
+is numerically stable.\\
+
+\textit{Definition Stability: A dynamical system is stable if a small change in the input data leads to a small change in the final result.} \\
+\par 
+To further better characterize this, assume a small perturbation, $\delta Y(0)$ to the initial data $Y(0)$, assume this change is propagated throughout the network. The question is, 
+what would be the change after some time t, that is what is $\delta Y(t)$? This change can be characterized by the Lyapunov exponent $(\lambda)$:
+\begin{gather*}
+    \norm{\delta Y(t)} \approx e^{\lambda t} \norm{\delta Y(0)}
+\end{gather*}
+For a system, the "Forward Propagation" is well-posed (stable) when $\lambda \leq 0$, and ill-posed (unstable) if $\lambda > 0$. \\
+It is easy to determine $\lambda$, as a bound on $\lambda$ can be derived from the eigenvalues of the Jacobian matrix of $\mathcal{F}$ with respect to $Y$, which is given by:
+\begin{gather}
+    J(t) = \nabla_{Y(t)} \mathcal{F}(Y(t)) \nonumber \\
+    \text{A sufficient condition for stability is: } \nonumber \\
+    \boxed{\max_{i = 1,2,\dots, n} Re(\lambda_i (J(t))) \leq 0, \ \ \forall t \in [0,T]} \\
+    \text{where $\lambda_i(J)$ is the $i$th eigenvalue of $J$, and $Re(\cdot)$ denotes the real part} \nonumber
+\end{gather}
+Something the authors wanted to emphasis, the stability of the forward propagation is necessary to obtain stable networks that generalize well, but not sufficient. For a too small $\lambda$ 
+the networks decay too quickly are not able to learn. This is why the authors suggest selecting networks with a negative $lambda \approx 0$
+
+\section*{Previous Solutions}
+    A paper titled "The reversible residual network: Backpropagation without storing activations" \cite{Gomez}, does similar work to this paper. Though the approach in the competing paper, set 
+out to put limitations on the activation layer, that allow for the network to be reversible. Our paper in contrast, put no such limitations and instead chose to approach a solution the problem 
+as layed out in the previous chapter through the use of ODEs. \par 
+    Another famous paper which improves upon ResNet, is the famous ResNxt network. Published in the paper "Aggregated residual transformations for deep neural networks" \cite{ResNxt}. 
+ResNxt introduces a homogeneous, multi-branch architecture to increase the accuracy. \par 
+    Lastly worth mentioning is a paper titled "Deep networks with stochastic depth" \cite{stochastic depth}, which reduces the training time while increasing accuracy by randomly dropping a 
+subset of layers and bypassing them with identity functions (similar to ResNet).
+
+\pagebreak
+
+\section*{Suggested Model}
+    The authors present three different models in their paper:
+    \begin{itemize}
+        \item \textbf{Two-layer Hamiltonian Networks}
+        \item \textbf{Midpoint Network}
+        \item \textbf{Leapfrog Network}
+    \end{itemize} \par 
+    We will start by presenting the model we chose to present, implement and improve upon. This model's architecture is inspired by Hamiltonian systems
+    \begin{gather*}
+        \dot{Y}(t) = \sigma (K(t)Z(t) + b(t)) \\
+        \dot{Z}(t) = -\sigma (K(t)^T Y(t) + b(t))
+    \end{gather*}
+    \par 
+    $Y(t)$ and $Z(t)$ are partitions of the features, $\sigma$ is an activation function, and the network parameters are $\theta = (K,b)$. For convolutional neural networks $K(t)$ and $K^T(t)$ 
+are convolutional operators. It can be shown that the Jacobian matrix of this ODE satisfies the condition of Ep.(2), leading to the conclusion that this network is stable and well-posed. 
+The original Hamiltonian network \cite{Haber and Ruthotto} was designed using a single network. The authors claimed this was a limiting factor as the representability of a "single-layer" 
+didn't generate satisfactory results. There for a "two-layer" architecture was suggested, which is what was used in the experimentation phase. The "two-layer" Hamiltonian equations are:
+\begin{gather}
+    \begin{split}
+        \dot{Y}(t) = K^T_1(t) \sigma (K_1(t)Z(t) + b_1(t)) \\
+        \dot{Z}(t) = -K^T_2(t) \sigma (K_2(t)Y(t) + b_2(t))
+    \end{split}
+\end{gather}
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{imgs/two_layer_hamiltonian_block.png} % first figure itself
+        \caption{Two-Layer Hamiltonian}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        In discrete form (acquired using the Verlet method):
+        \begin{gather*}
+            Y_{j+1} = Y_{j} + h K^T_{j,1} \sigma (K_{j,1} Z_j + b_{j,1})) \\
+            Z_{j+1} = Z_{j} - h K^T_{j,2} \sigma (K_{j,2} Y_{j+1} + b_{j,2}))
+        \end{gather*}
+    \end{minipage}
+\end{figure}
+
+
+\par 
+    We will present a brief explanation of each of the other models. For the \textbf{Midpoint Network} the basis for it's model lays in the numerical 
+method for discretization of the ODE as described in Eq.(1), done by using a central finite differences in time method: \\
+\begin{gather*}
+    \frac{Y_{j+1} - Y_{j-1}}{2h} = \mathcal{F}(Y_j) \\
+    \text{Gives the following forward propagation } \\
+    Y_{j+1} = Y_{j-1} + 2h \mathcal{F}(Y_j), \ \ \text{for } j = 1, \dots, N - 1
+\end{gather*}
+\par 
+    The last model presented in the paper is the \textbf{Leapfrog Network}, which simply put is a special case of the Hamiltonian network Eq. (3), where one of the kernels is the identity 
+matrix and one of the activations is the identity function. The leapfrog network involves two derivatives in time and reads 
+\begin{gather*}
+    \ddot{Y}(t) \approx h^{-2} (Y_{j+1} -2Y_j + Y_{j-1}) \\
+    \xrightarrow[]{\text{Discrete Form}} \\
+    Y_{j+1} = 
+    \begin{cases}
+        2Y_j - h^2 K^T_j \sigma (K_j Y_j + b_j),& j=1 \\
+        2Y_j - Y_{j-1} - h^2 K^T_j \sigma (K_j Y_j + b_j),& j>0
+    \end{cases}
+\end{gather*}
+
+Diagrams of Midpoint Network and Leapfrog Network blocks
+%2 images per row
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{imgs/midpoint_block.png} % first figure itself
+        \caption{Midpoint Network Block}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{imgs/leap_frog_block.png} % second figure itself
+        \caption{Leapfrog Network Block}
+    \end{minipage}
+\end{figure}
+The blocks a chained together to make a neural network as depicted in the following diagram (Hamiltonian Network)
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{imgs/hamiltonian_network.png}    
+\end{figure}
+
+\section*{Implementation}
+\section*{Analysis}
+\section*{Creative and Suggested Improvements}
+    
+
+\begin{thebibliography}{9}
+
+    \bibitem{Gomez}
+        Gomez, A. N.; Ren, M.; Urtasun, R.; and Grosse, R. B. 2017.
+        The reversible residual network: Backpropagation without storing
+        activations. NIPS.
+
+    \bibitem{ResNxt}
+        Xie, S.; Girshick, R.; Doll, P.; Tu, Z.; and He, K. 2017. 
+        Aggregated residual transformations for deep neural networks. CVPR.
+
+    \bibitem{stochastic depth}
+        Huang, G.; Sun, Y.; Liu, Z.; Sedra, D.; and Weinberger, K. Q. 2016.
+        Deep networks with stochastic depth. In ECCV.
+
+    \bibitem{Haber and Ruthotto}
+        Haber, E., and Ruthotto, L. 2017. Stable architectures for deep
+        neural networks. arXiv preprint arXiv:1705.03341
+
+\end{thebibliography}
 
 \end{document}
+
+
