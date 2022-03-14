@@ -206,7 +206,7 @@ class HamiltonianOriginalNetwork(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.init_conv = nn.Conv2d(3, 32, 3)
         self.dropout1 = nn.Dropout2d(0.6)
-        self.dropout2 = nn.Dropout(0.6)
+        self.dropout2 = nn.Dropout(0.4)
         self.bn1 = nn.BatchNorm2d(32)
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(128)
@@ -239,15 +239,15 @@ class HamiltonianOriginalNetwork(nn.Module):
         x = self.init_conv(x)
         x = self.bn1(x)
         x = self.hamiltonian_unit1(x)
-        x = self.bn1(x)
+        #x = self.bn1(x)
         x = self.pool1(x)
         x = self.zero_pad(x, x.shape)
         x = self.hamiltonian_unit2(x)
-        x = self.bn2(x)
+        #x = self.bn2(x)
         x = self.pool2(x)
         x = self.zero_pad(x, torch.Size([x.shape[0], 128-x.shape[1], x.shape[2], x.shape[3]]))
         x = self.hamiltonian_unit3(x)
-        x = self.bn3(x)
+        #x = self.bn3(x)
         x = self.pool3(x)
 
         x = torch.reshape(x, (x.shape[0], x.shape[1] * x.shape[2] * x.shape[3]))
@@ -267,7 +267,8 @@ class HamiltonianInceptionNetwork(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.init_conv = nn.Conv2d(3, 32, 3)
         self.dropout1 = nn.Dropout2d(0.6)
-        self.dropout2 = nn.Dropout(0.7)
+        self.dropout2 = nn.Dropout(0.4)
+        self.bn1 = nn.BatchNorm2d(32)
 
         blocks1 = []
         blocks2 = []
@@ -293,9 +294,8 @@ class HamiltonianInceptionNetwork(nn.Module):
         self.fc = nn.Linear(128 * 2 * 2, 10)
 
     def forward(self, x):
-        #x = self.dropout1(x)
         x = self.init_conv(x)
-
+        x = self.bn1(x)
         x = self.hamiltonian_unit1(x)
         x = self.pool1(x)
         x = self.zero_pad(x, x.shape)
@@ -306,7 +306,7 @@ class HamiltonianInceptionNetwork(nn.Module):
         x = self.pool3(x)
 
         x = torch.reshape(x, (x.shape[0], x.shape[1] * x.shape[2] * x.shape[3]))
-        #x = self.dropout2(x)
+        x = self.dropout2(x)
         x = self.fc(x)
         return x
 

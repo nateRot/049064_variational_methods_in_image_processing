@@ -17,7 +17,7 @@ def train(dataset, architecture, path):
     weight_decay = 5e-4               # Weight decay factor (L2 regularization)
     weight_smoothness_decay = 2e-4    # Weight smoothness decay factor
     momentum = 0.9                    # Momentum
-    initial_lr = 0.01                 # Initial learning rate
+    initial_lr = 0.001                 # Initial learning rate
     lr_decay_factor = 0.1             # Learning rate decay factor
     lr_decay_epochs = [80, 120, 160]  # Epochs in which learning rate decays
 
@@ -91,6 +91,7 @@ def train(dataset, architecture, path):
                 # Validation step
                 with torch.no_grad():
                     result = evaluate(net, valloader, criterion)
+                    net.train()
                 print("\nEpoch [{}], val_loss: {:.4f}, val_acc: {:.4f}".format(epoch, result['val_loss'], result['val_acc']))
                 history.append(result)
 
@@ -183,6 +184,7 @@ def accuracy(outputs, labels):
 
 
 def evaluate(net, val_loader, criterion):
+    net.eval()
     results = [validation_step(data, criterion, net) for data in val_loader]
     return validation_epoch_end(results)
 
@@ -221,5 +223,5 @@ def weight_smoothness_reg(net, weight_cache):
 
 
 if __name__ == "__main__":
-    train(dataset='cifar10', architecture='original_hamiltonian', path='./hamiltonian_net.pth')
-    test(dataset='cifar10', architecture='original_hamiltonian', path='./hamiltonian_net.pth')
+    train(dataset='cifar10', architecture='inception_hamiltonian', path='./hamiltonian_net2.pth')
+    test(dataset='cifar10', architecture='inception_hamiltonian', path='./hamiltonian_net2.pth')
