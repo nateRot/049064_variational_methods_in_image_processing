@@ -21,6 +21,7 @@
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\N}{\mathbb{N}}
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\renewcommand{\qedsymbol}{\rule{0.7em}{0.7em}}
 \DeclareMathOperator{\Tr}{Tr}
 \DeclareMathOperator{\spn}{span}
 \title{Final Report: Reversible Architectures for Arbitrarily Deep Residual Neural Networks \\ \large Course 049064: Variational Methods in Image Processing}
@@ -208,8 +209,63 @@ The blocks a chained together to make a neural network as depicted in the follow
 
 \section*{Implementation}
 \section*{Analysis}
+    Let us examine some of the results displayed in the paper. When examining the experimental results two main points jump out:
+\begin{enumerate}
+    \item The accuracry of the suggested models perform poorly compared with the baseline models (on the CIF datasets)
+    \item The suggested models require significantly fewer parameters to train (as promised by the authors) and in turn perform better than the 
+    baseline models, on a subset of training data.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.5]{imgs/cifar_results.png}
+    \caption{Poor performance (\textcolor{red}{Red}), On par performance (\textcolor{yellow}{Yellow}), Superior performance (\textcolor{green}{Green}). Fewer Parameters (\textcolor{violet}{Violet})}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.5]{imgs/substrata_data.png}
+    \caption{Both on CIFAR and STL datasets we set how the Hamiltonian network outperforms for "small" datasets (subset is \% complete dataset)}
+\end{figure}
+
+
 \section*{Creative and Suggested Improvements}
+    As noted in the Analysis section, there is much left to be desired with regard to accuracy of the models offered by the paper. We have decided to address this issue by including 
+"inception blocks" (first introduced in "Going deeper with Convolutions"\cite{C. Szegedy}) within the model. \\
+When designing a convolutional network, it is often difficult to select the best kernel size. Inception blocks seek to overcome this by incorporating several kernels of various sizes and 
+applying them all at each stage. This has proven to be effective. The models tend to go "wider" (authors terminology) and require more computations, but improve the accuracy of the network. 
+For us to be able to include these inception blocks in a Two-Layer Hamiltonian network for example, we must first prove that neither of the assumptions the Hamiltonian network guarantees, 
+are violated. We will prove both "reversibility" and "stability" still apply to our model. \\
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.5]{imgs/inception_block.png}
+\end{figure}
+Two-Layer Hamiltonian-Inception Block:
+
+\begin{gather*}
+    Y_{j+1} = Y_{j} + h K^T_{j,1} \sigma (K_{j,1} Z_j + b_{j,1})) \\
+    Z_{j+1} = Z_{j} - h K^T_{j,2} \sigma (K_{j,2} Y_{j+1} + b_{j,2}))
+\end{gather*}
     
+Here we will present the proof that the inception block can be represented as a kernel K. This would in turn show the model with inception blocks to be: 1) Stable, 2) Reversible \\
+We use the following block in our model: \\
+\begin{figure}[H]
+    \centering
+    \includegraphics{imgs/our_inception_block.png}
+\end{figure}
+$1 \times 1$, $3 \times 3$, $5 \times 5$ are convolution operators with kernel sizes $1, 3, 5$ and the filter concatenation is an element wise summation of the output channels.\\
+\begin{proof}\ \\
+\textit{Convolutional operators are linear \cite{Signals and Systems}}\\
+\begin{gather*}
+    \forall A,B \text{ linear operators } \rightarrow AB = C \text{ is also a linear operator }\\
+\end{gather*}
+\textit{we know that a sum of linear operators are also a linear operator}\\
+\begin{gather*}
+    \Rightarrow I(x) = C_{1 \times 1} x + C_{3 \times 3} C_{1 \times 1} x + C_{5 \times 5} C_{1 \times 1} x = (C_{1 \times 1} + C_{3 \times 3} C_{1 \times 1} + C_{5 \times 5} C_{1 \times 1}) x \\
+    \Rightarrow I(x) = Kx
+\end{gather*}
+\end{proof}
+
+
 
 \begin{thebibliography}{9}
 
@@ -229,6 +285,14 @@ The blocks a chained together to make a neural network as depicted in the follow
     \bibitem{Haber and Ruthotto}
         Haber, E., and Ruthotto, L. 2017. Stable architectures for deep
         neural networks. arXiv preprint arXiv:1705.03341
+
+    \bibitem{C. Szegedy}
+    C. Szegedy, W Liu, Y. Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, 
+    V. Vanhoucke, A. Rabinovich. 2017.
+    Going deeper with convolutions. arXiv preprint arXiv:1409.4842v1
+
+    \bibitem{Signals and Systems}
+    Hayes, Signals and Systems, p. 11.
 
 \end{thebibliography}
 
