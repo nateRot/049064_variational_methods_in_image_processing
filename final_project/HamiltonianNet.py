@@ -150,6 +150,13 @@ class RevBlockUnit(nn.Module):
 
 
 class InceptionRevBlock(nn.Module):
+    '''
+
+    Reversible inception residual block. Uses 3 channels of layers with convolutions of
+    1x1, 3x3, 5x5 and 1 channel is used as a skip connection (identity).
+    The transpose of the layers share the weights with the conv layers respectfully.
+
+    '''
     def __init__(self, n_channels, sign):
         super(InceptionRevBlock, self).__init__()
         assert (sign == -1 or sign == 1)
@@ -193,6 +200,14 @@ class ResidualFunctionBlock(nn.Module):
         self.conv = nn.Conv2d(n_channels, n_channels, kernel_size, padding=1, bias=True)
 
     def forward(self, x):
+        '''
+
+        Forward pass of residual function block (F, G blocks).
+        The Conv and ConvTranspose have shared weights.
+
+        :param x: Input tensor
+        :return: Output tensor
+        '''
         x = F.conv2d(x, self.conv.weight, bias=self.conv.bias)
         x = F.relu(x)
         x = F.conv_transpose2d(x, self.conv.weight, bias=self.conv.bias)
@@ -205,11 +220,6 @@ class HamiltonianOriginalNetwork(nn.Module):
         super(HamiltonianOriginalNetwork, self).__init__()
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.init_conv = nn.Conv2d(3, 32, 3)
-        self.dropout1 = nn.Dropout2d(0.6)
-        self.dropout2 = nn.Dropout(0.4)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.bn3 = nn.BatchNorm2d(128)
 
         blocks1 = []
         blocks2 = []
@@ -235,23 +245,17 @@ class HamiltonianOriginalNetwork(nn.Module):
         self.fc = nn.Linear(128 * 2 * 2, 10)
 
     def forward(self, x):
-        #x = self.dropout1(x)
         x = self.init_conv(x)
-        x = self.bn1(x)
         x = self.hamiltonian_unit1(x)
-        #x = self.bn1(x)
         x = self.pool1(x)
         x = self.zero_pad(x, x.shape)
         x = self.hamiltonian_unit2(x)
-        #x = self.bn2(x)
         x = self.pool2(x)
         x = self.zero_pad(x, torch.Size([x.shape[0], 128-x.shape[1], x.shape[2], x.shape[3]]))
         x = self.hamiltonian_unit3(x)
-        #x = self.bn3(x)
         x = self.pool3(x)
 
         x = torch.reshape(x, (x.shape[0], x.shape[1] * x.shape[2] * x.shape[3]))
-        x = self.dropout2(x)
         x = self.fc(x)
         return x
 
@@ -261,14 +265,68 @@ class HamiltonianOriginalNetwork(nn.Module):
         return x
 
 
+class HamiltonianRegularizedNetwork(nn.Module):
+    def __init__(self):
+        super(HamiltonianRegularizedNetwork, self).__init__()
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.init_conv = nn.Conv2d(3, 32, 3)
+        self.dropout = nn.Dropout(0.4)
+        self.bn = nn.BatchNorm2d(32)
+
+        blocks1 = []
+        blocks2 = []
+        blocks3 = []
+        block_num_per_unit = 18
+        for i in range(block_num_per_unit):
+            f_func1 = ResidualFunctionBlock(16, 3, sign=1)
+            g_func1 = ResidualFunctionBlock(16, 3, sign=-1)
+            f_func2 = ResidualFunctionBlock(32, 3, sign=1)
+            g_func2 = ResidualFunctionBlock(32, 3, sign=-1)
+            f_func3 = ResidualFunctionBlock(64, 3, sign=1)
+            g_func3 = ResidualFunctionBlock(64, 3, sign=-1)
+            blocks1.append(HamRevBlock(f_func1, g_func1))
+            blocks2.append(HamRevBlock(f_func2, g_func2))
+            blocks3.append(HamRevBlock(f_func3, g_func3))
+
+        self.hamiltonian_unit1 = RevBlockUnit(nn.ModuleList(blocks1))
+        self.hamiltonian_unit2 = RevBlockUnit(nn.ModuleList(blocks2))
+        self.hamiltonian_unit3 = RevBlockUnit(nn.ModuleList(blocks3))
+        self.pool1 = nn.AvgPool2d(kernel_size=3, stride=2)
+        self.pool2 = nn.AvgPool2d(kernel_size=3, stride=2)
+        self.pool3 = nn.AvgPool2d(kernel_size=3, stride=2)
+        self.fc = nn.Linear(128 * 2 * 2, 10)
+
+    def forward(self, x):
+        x = self.init_conv(x)
+        x = self.bn(x)
+        x = self.hamiltonian_unit1(x)
+        x = self.pool1(x)
+        x = self.zero_pad(x, x.shape)
+        x = self.hamiltonian_unit2(x)
+        x = self.pool2(x)
+        x = self.zero_pad(x, torch.Size([x.shape[0], 128-x.shape[1], x.shape[2], x.shape[3]]))
+        x = self.hamiltonian_unit3(x)
+        x = self.pool3(x)
+
+        x = torch.reshape(x, (x.shape[0], x.shape[1] * x.shape[2] * x.shape[3]))
+        x = self.dropout(x)
+        x = self.fc(x)
+        return x
+
+    def zero_pad(self, x, padding_shape):
+        zero_padding = torch.zeros(padding_shape).to(self.device)
+        x = torch.cat([x, zero_padding], dim=1)
+        return x
+
+
+
 class HamiltonianInceptionNetwork(nn.Module):
     def __init__(self):
         super(HamiltonianInceptionNetwork, self).__init__()
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.init_conv = nn.Conv2d(3, 32, 3)
-        self.dropout1 = nn.Dropout2d(0.6)
-        self.dropout2 = nn.Dropout(0.4)
-        self.bn1 = nn.BatchNorm2d(32)
+        self.dropout = nn.Dropout(0.7)
+        self.bn = nn.BatchNorm2d(32)
 
         blocks1 = []
         blocks2 = []
@@ -295,7 +353,7 @@ class HamiltonianInceptionNetwork(nn.Module):
 
     def forward(self, x):
         x = self.init_conv(x)
-        x = self.bn1(x)
+        x = self.bn(x)
         x = self.hamiltonian_unit1(x)
         x = self.pool1(x)
         x = self.zero_pad(x, x.shape)
@@ -306,7 +364,7 @@ class HamiltonianInceptionNetwork(nn.Module):
         x = self.pool3(x)
 
         x = torch.reshape(x, (x.shape[0], x.shape[1] * x.shape[2] * x.shape[3]))
-        x = self.dropout2(x)
+        x = self.dropout(x)
         x = self.fc(x)
         return x
 
